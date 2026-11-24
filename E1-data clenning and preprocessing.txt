@@ -1,0 +1,72 @@
+import pandas as pd
+import numpy as np
+# Load the raw dataset from an Excel file
+df = pd.read_excel('employee_raw_data.xlsx', sheet_name='Employees')
+# If the data is supplied as a CSV file instead, use:
+# df = pd.read_csv('employee_raw_data.csv')
+print('Raw Dataset:')
+print(df)
+
+print('\nShape of dataset:', df.shape)
+print('\nDataset Info:')
+print(df.info())
+print('\nMissing values in each column:')
+print(df.isnull().sum())
+
+df = df.drop_duplicates()
+print('\nAfter removing duplicates, shape:', df.shape)
+
+# Replace the text 'NA' in Salary with an actual NaN, then convert to numeric
+df['Salary'] = pd.to_numeric(df['Salary'], errors='coerce')
+# Fill numerical columns with the median (robust to outliers)
+df['Age'] = df['Age'].fillna(df['Age'].median())
+df['Salary'] = df['Salary'].fillna(df['Salary'].median())
+# Fill categorical columns with the mode (most frequent value)
+df['Gender'] = df['Gender'].fillna(df['Gender'].mode()[0])
+df['Department'] = df['Department'].fillna(df['Department'].mode()[0])
+print('\nMissing values after treatment:')
+print(df.isnull().sum())
+
+
+# Remove leading/trailing spaces from names
+df['Name'] = df['Name'].str.strip()
+# Standardize Gender values
+df['Gender'] = df['Gender'].str.strip().str.upper().replace({
+    'MALE': 'Male', 'M': 'Male',
+    'FEMALE': 'Female'
+})
+# Standardize Department names
+df['Department'] = df['Department'].str.strip().str.upper()
+print('\nDataset after standardizing text values:')
+print(df)
+
+df['JoiningDate'] = pd.to_datetime(df['JoiningDate'], errors='coerce', dayfirst=False)
+df['Age'] = df['Age'].astype(int)
+print('\nUpdated data types:')
+print(df.dtypes)
+
+
+Q1 = df['Age'].quantile(0.25)
+Q3 = df['Age'].quantile(0.75)
+IQR = Q3 - Q1
+lower_bound = Q1 - 1.5 * IQR
+upper_bound = Q3 + 1.5 * IQR
+print('\nLower bound:', lower_bound, ' Upper bound:', upper_bound)
+# Cap outlier values instead of dropping the record
+df['Age'] = np.where(df['Age'] > upper_bound, upper_bound,
+             np.where(df['Age'] < lower_bound, lower_bound, df['Age']))
+print('\nAge column after outlier treatment:')
+print(df['Age'])
+
+
+df_encoded = pd.get_dummies(df, columns=['Gender', 'Department'], drop_first=True)
+print('\nDataset after one-hot encoding:')
+print(df_encoded.head())
+
+
+df_encoded['Salary_Normalized'] = (
+    (df_encoded['Salary'] - np.min(df_encoded['Salary'])) /
+    (np.max(df_encoded['Salary']) - np.min(df_encoded['Salary']))
+)
+print('\nFinal Cleaned and Preprocessed Dataset:')
+print(df_encoded)
